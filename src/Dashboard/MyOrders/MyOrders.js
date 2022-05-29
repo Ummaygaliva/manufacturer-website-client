@@ -1,36 +1,35 @@
 import { signOut } from 'firebase/auth';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
+import { useQuery } from 'react-query';
 import { useNavigate, Link } from 'react-router-dom';
 import auth from '../../firebase.init';
-
+import Loading from '../../Shared/Loading/Loading';
+import DeleteOrderModal from './../../Shared/DeleteOrderModal/DeleteOrderModal'
 const MyOrders = () => {
     const [user] = useAuthState(auth);
-    const [orders, setOrders] = useState([]);
+    const [deletingOrder, setDeletingOrder] = useState();
+    // const [orders, setOrders] = useState([]);
     const navigate = useNavigate();
-    useEffect(() => {
 
-        if (user) {
-            fetch(`https://elite-toolboxes.herokuapp.com/order?email=${user.email}`, {
-                method: 'GET',
-                headers: {
-                    'authorization': `Bearer ${localStorage.getItem('accessToken')}`
-                }
-            })
-                .then(res => {
-                    if (res.status === 401 || res.status === 403) {
-                        signOut(auth);
-                        localStorage.removeItem('accessToken');
-                        navigate('/')
-
-                    }
-                    return res.json()
-                })
-                .then(data => {
-                    setOrders(data)
-                });
+    const { data: orders, isLoading, refetch } = useQuery('orders', () => fetch(`https://elite-toolboxes.herokuapp.com/order?email=${user.email}`, {
+        headers: {
+            authorization: `Bearer ${localStorage.getItem('accessToken')}`
         }
-    }, [navigate, user])
+    }).then(res => {
+        if (res.status === 401 || res.status === 403) {
+            signOut(auth);
+            localStorage.removeItem('accessToken');
+            navigate('/')
+
+        }
+        return res.json()
+    }))
+    if (isLoading) {
+        return <Loading />
+    }
+
+
 
 
     return (
@@ -49,6 +48,7 @@ const MyOrders = () => {
                             <th>status</th>
                             <th>Transaction id</th>
                             <th>Payment</th>
+                            <th>Cancel</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -66,9 +66,13 @@ const MyOrders = () => {
                             </Link> :
                                 <button className='bg-green-500 cursor-not-allowed p-2 rounded text-white'>Paid</button>
                             }</td>
+                            <td>{!order?.paid && <label
+                                onClick={() => setDeletingOrder(order)} htmlFor="delete-confirm-modal" className="fal fa-rectangle-xmark text-red-600 cursor-pointer"></label>}
+                            </td>
                         </tr>)}
                     </tbody>
                 </table>
+                {deletingOrder && <DeleteOrderModal deletingOrder={deletingOrder} setDeletingOrder={setDeletingOrder} refetch={refetch} />}
             </div>
         </div>
     );
